@@ -1,6 +1,6 @@
 #' Calc Weights Function
 #'
-#' This function calculates WoE weights of a raster
+#' This function calculates WoE weights of a raster. Currently doesn't handle missing data.
 #' @param evidenceRaster Raster of of evidence
 #' @param predictTPts Training points
 #' @keywords WoE, Weights of Evidence
