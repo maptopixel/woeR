@@ -67,7 +67,7 @@ calcWeights = function (evidenceRaster,predictTPts) {
 
 
   #Determine new class values
-  newClassValues = Wplus #This needs some checking based on a cumululative asceding / descending param
+  newClassValues = Wplus #This needs some checking based on a cumululative ascending / descending param
 
   revisedClassesDf = data.frame(cbind(classLabels,newClassValues))
   names(revisedClassesDf) = c("id","v")
