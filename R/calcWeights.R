@@ -7,11 +7,21 @@
 #' @export
 #' @examples
 #' calcWeights()
-calcWeights = function (evidenceRaster,predictTPts) {
+calcWeights = function (evidenceRaster,predictTPts,cumulative) {
   r = raster(evidenceRaster)
+  #total number of TP
+  NumOfTP = length(predictTPts)
+
   #Compute the area for each class
   freqOfRDf = data.frame(freq(r))
-  thisNumAreaUnits= freqOfRDf$count
+  classIdsList = freqOfRDf$value
+  thisNumAreaUnits = freqOfRDf$count
+
+  #Determine if doing cumulative ascending or categorical
+  if (cumulative==TRUE) {
+    thisNumAreaUnits= cumsum( thisNumAreaUnits)
+  }
+  thisNumAreaUnits
 
   #get total area
   TotalArea = sum(freqOfRDf$count)
@@ -19,21 +29,27 @@ calcWeights = function (evidenceRaster,predictTPts) {
   #Get the values at training pts
   predTpValues = extract(r, predictTPts)
 
-  #summarize the counts using a tabulation
+  #summarize the counts of tps using a tabulation
   summaryTableDF = data.frame(table(predTpValues))
+  summaryTableDF
 
-  thisNumTP = summaryTableDF$Freq
-  classLabels =summaryTableDF$predTpValues
-
-  #total number of TP
-  NumTP = sum(summaryTableDF$Freq)
-
-  #classLabels = unique(predTpValues)
+  #Determine if doing cumulative ascending or categorical
+  if (cumulative==TRUE) {
+    summaryTableDF$Freq = cumsum(summaryTableDF$Freq)
+  }
 
 
-  #thisNumTP = c(72,2,2,10,8,6)
-  #thisNumAreaUnits = c(5598238, 160302, 126383, 110037, 99895, 79145)
+  df = data.frame(classIdsList, rep(NumOfTP, length(classIdsList)))
+  colnames(df) = c("ID","Freq")
+  colnames(summaryTableDF) = c("ID","Freq")
+  summaryTableDFFinal = merge(df,summaryTableDF,by="ID",all=TRUE)
+  my.na <- is.na(summaryTableDFFinal$Freq.y)
+  summaryTableDFFinal$Freq.y[my.na] <- summaryTableDFFinal$Freq.x[my.na]
+  thisNumTP = summaryTableDFFinal$Freq.y
 
+  #hack for ca testing
+  #classIdsList = c(1,2,3,4,5,6)
+  #thisNumTP = c(82,99,100,100,100,100)
 
   TotalAreaVector = rep(TotalArea,length(thisNumTP))
 
@@ -65,11 +81,37 @@ calcWeights = function (evidenceRaster,predictTPts) {
   #Wminus = LN(P(!B|D) / P(!B|!D))
   Wminus = log(PNotB_D/PNotB_NotD)
 
+  #Stdev of weights calculation for Wplus. P321 in Bonham-Carter
+  VarianceWplus = (1.0 / thisNumTP) + (1.0 / (thisNumAreaUnits-thisNumTP))
+  SWplus = sqrt(VarianceWplus)
+  SWplus
 
-  #Determine new class values
+  #Stdev of weights calculation for Wminus. P321 in Bonham-Carter
+  VarianceWminus = (1.0 / (NumTP-thisNumTP)) + (1.0 / (TotalArea-thisNumAreaUnits-NumTP+thisNumTP))
+  SWminus = sqrt(VarianceWminus)
+  SWminus
+
+  #Contrast vector
+  Contrast = Wplus - Wminus
+
+  #Contrast Stdev S(C) i.e. Standard deviation of contrast S(C) = S(var(W+) + var(W-))
+  SConstrast = sqrt(VarianceWplus + VarianceWminus)
+
+  #Studentized Contrast C/S(C)
+  StudentizedConstrast = Contrast/SConstrast
+  StudentizedConstrast
+
+  #generate a table of these values
+
+  weightsTable = data.frame(cbind(thisNumAreaUnits,thisNumTP , Wplus,  SWplus, Wminus, SWminus,Contrast,StudentizedConstrast))
+  weightsTable
+  plot(weightsTable$Contrast)
+
+
+  #Finished determining Determine new class values for Raster
   newClassValues = Wplus #This needs some checking based on a cumululative ascending / descending param
 
-  revisedClassesDf = data.frame(cbind(classLabels,newClassValues))
+  revisedClassesDf = data.frame(cbind(classIdsList,newClassValues))
   names(revisedClassesDf) = c("id","v")
 
   #subsitute in the weight values into the class values
