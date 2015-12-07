@@ -7,7 +7,7 @@
 #' @export
 #' @examples
 #' calcWeights()
-calcWeights = function (evidenceRaster,predictTPts,cumulative) {
+calcWeights = function (evidenceRaster,predictTPts,isCumulative) {
   r = raster(evidenceRaster)
   #total number of TP
   NumOfTP = length(predictTPts)
@@ -18,7 +18,7 @@ calcWeights = function (evidenceRaster,predictTPts,cumulative) {
   thisNumAreaUnits = freqOfRDf$count
 
   #Determine if doing cumulative ascending or categorical
-  if (cumulative==TRUE) {
+  if (isCumulative==TRUE) {
     thisNumAreaUnits= cumsum( thisNumAreaUnits)
   }
   thisNumAreaUnits
@@ -34,7 +34,7 @@ calcWeights = function (evidenceRaster,predictTPts,cumulative) {
   summaryTableDF
 
   #Determine if doing cumulative ascending or categorical
-  if (cumulative==TRUE) {
+  if (isCumulative==TRUE) {
     summaryTableDF$Freq = cumsum(summaryTableDF$Freq)
   }
 
@@ -45,49 +45,62 @@ calcWeights = function (evidenceRaster,predictTPts,cumulative) {
   summaryTableDFFinal = merge(df,summaryTableDF,by="ID",all=TRUE)
   my.na <- is.na(summaryTableDFFinal$Freq.y)
   summaryTableDFFinal$Freq.y[my.na] <- summaryTableDFFinal$Freq.x[my.na]
-  thisNumTP = summaryTableDFFinal$Freq.y
+  thisNumOfTP = summaryTableDFFinal$Freq.y
 
-  #hack for ca testing
-  #classIdsList = c(1,2,3,4,5,6)
-  #thisNumTP = c(82,99,100,100,100,100)
+  
+  #Trap from ArcSDM to catch situations where no TPs in the class
+  logical =  thisNumOfTP == NumOfTP
+  thisNumOfTP[logical] = thisNumOfTP[logical] - 0.01     
 
-  TotalAreaVector = rep(TotalArea,length(thisNumTP))
+  TotalAreaVector = rep(TotalArea,length(thisNumOfTP))
 
   #P(D)
-  PD = NumTP/TotalAreaVector
+  PD = NumOfTP/TotalAreaVector
 
   #P(!D)
-  PNotD = (TotalAreaVector - NumTP)/TotalAreaVector
+  PNotD = (TotalAreaVector - NumOfTP)/TotalAreaVector
 
-  #Conditional probabilities
+  #Conditional probabilities for W+ and W-
   #####################
-  #P(B|D)
-  PB_D = thisNumTP/NumTP
+  
+  #Calculate the weight+
+  #####################
+    #P(B|D)
+  PB_D = thisNumOfTP/NumOfTP
 
   #P(B|!D)
-  PB_NotD = (thisNumAreaUnits-thisNumTP) / (TotalAreaVector-NumTP)
+  PB_NotD = (thisNumAreaUnits-thisNumOfTP) / (TotalAreaVector-NumOfTP)    
+  PB_NotD
+  
 
-  #P(!B|D)
-  PNotB_D = (NumTP-thisNumTP)/NumTP
-
-  #P(!B|!D)
-  PNotB_NotD = (TotalAreaVector-thisNumAreaUnits-NumTP-thisNumTP)/(TotalAreaVector-NumTP)
-
-  #Calculate the weights
-  #####################
   #Wplus = LN(P(B|D) / P(B|!D))
   Wplus = log(PB_D/PB_NotD)
-
+  Wplus 
+  
+    
+  #Calculate the weight-
+  ####################    
+  #P(!B|D)
+  PNotB_D = (NumOfTP-thisNumOfTP)/NumOfTP
+  PNotB_D
+  
+  #P(!B|!D)
+  PNotB_NotD = (TotalAreaVector-thisNumAreaUnits-NumOfTP+thisNumOfTP)/(TotalAreaVector-NumOfTP)
+  PNotB_NotD
+  
   #Wminus = LN(P(!B|D) / P(!B|!D))
   Wminus = log(PNotB_D/PNotB_NotD)
-
+  Wminus 
+  
+  
+  
   #Stdev of weights calculation for Wplus. P321 in Bonham-Carter
-  VarianceWplus = (1.0 / thisNumTP) + (1.0 / (thisNumAreaUnits-thisNumTP))
+  VarianceWplus = (1.0 / thisNumOfTP) + (1.0 / (thisNumAreaUnits-thisNumOfTP))
   SWplus = sqrt(VarianceWplus)
   SWplus
 
   #Stdev of weights calculation for Wminus. P321 in Bonham-Carter
-  VarianceWminus = (1.0 / (NumTP-thisNumTP)) + (1.0 / (TotalArea-thisNumAreaUnits-NumTP+thisNumTP))
+  VarianceWminus = (1.0 / (NumOfTP-thisNumOfTP)) + (1.0 / (TotalArea-thisNumAreaUnits-NumOfTP+thisNumOfTP))
   SWminus = sqrt(VarianceWminus)
   SWminus
 
@@ -102,8 +115,7 @@ calcWeights = function (evidenceRaster,predictTPts,cumulative) {
   StudentizedConstrast
 
   #generate a table of these values
-
-  weightsTable = data.frame(cbind(thisNumAreaUnits,thisNumTP , Wplus,  SWplus, Wminus, SWminus,Contrast,StudentizedConstrast))
+  weightsTable = data.frame(cbind(thisNumAreaUnits,thisNumOfTP , Wplus,  SWplus, Wminus, SWminus,Contrast,StudentizedConstrast))
   weightsTable
   plot(weightsTable$Contrast)
 
