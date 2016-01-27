@@ -3,6 +3,7 @@
 #' This function calculates WoE weights of a raster. Currently doesn't handle missing data.
 #' @param evidenceRaster Raster of of evidence
 #' @param predictTPts Training points
+#' @param isCumulative boolean of whether to accumulate area values (e.g for ascending variables) or not (e.g. categorical vars)
 #' @keywords WoE, Weights of Evidence
 #' @export
 #' @examples
@@ -47,10 +48,10 @@ calcWeights = function (evidenceRaster,predictTPts,isCumulative) {
   summaryTableDFFinal$Freq.y[my.na] <- summaryTableDFFinal$Freq.x[my.na]
   thisNumOfTP = summaryTableDFFinal$Freq.y
 
-  
+
   #Trap from ArcSDM to catch situations where no TPs in the class
   logical =  thisNumOfTP == NumOfTP
-  thisNumOfTP[logical] = thisNumOfTP[logical] - 0.01     
+  thisNumOfTP[logical] = thisNumOfTP[logical] - 0.01
 
   TotalAreaVector = rep(TotalArea,length(thisNumOfTP))
 
@@ -62,38 +63,38 @@ calcWeights = function (evidenceRaster,predictTPts,isCumulative) {
 
   #Conditional probabilities for W+ and W-
   #####################
-  
+
   #Calculate the weight+
   #####################
     #P(B|D)
   PB_D = thisNumOfTP/NumOfTP
 
   #P(B|!D)
-  PB_NotD = (thisNumAreaUnits-thisNumOfTP) / (TotalAreaVector-NumOfTP)    
+  PB_NotD = (thisNumAreaUnits-thisNumOfTP) / (TotalAreaVector-NumOfTP)
   PB_NotD
-  
+
 
   #Wplus = LN(P(B|D) / P(B|!D))
   Wplus = log(PB_D/PB_NotD)
-  Wplus 
-  
-    
+  Wplus
+
+
   #Calculate the weight-
-  ####################    
+  ####################
   #P(!B|D)
   PNotB_D = (NumOfTP-thisNumOfTP)/NumOfTP
   PNotB_D
-  
+
   #P(!B|!D)
   PNotB_NotD = (TotalAreaVector-thisNumAreaUnits-NumOfTP+thisNumOfTP)/(TotalAreaVector-NumOfTP)
   PNotB_NotD
-  
+
   #Wminus = LN(P(!B|D) / P(!B|!D))
   Wminus = log(PNotB_D/PNotB_NotD)
-  Wminus 
-  
-  
-  
+  Wminus
+
+
+
   #Stdev of weights calculation for Wplus. P321 in Bonham-Carter
   VarianceWplus = (1.0 / thisNumOfTP) + (1.0 / (thisNumAreaUnits-thisNumOfTP))
   SWplus = sqrt(VarianceWplus)
