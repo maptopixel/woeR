@@ -9,6 +9,10 @@
 #' @examples
 #' calcWeights()
 calcWeights = function (evidenceRaster,predictTPts,isCumulative) {
+  
+  #This is used for determining cut-off values for the final weights of cumulative multi-class evidence
+  Contrast_Confidence_Level = 2
+  
   r = raster(evidenceRaster)
   #total number of TP
   NumOfTP = length(predictTPts)
@@ -115,8 +119,36 @@ calcWeights = function (evidenceRaster,predictTPts,isCumulative) {
   StudentizedConstrast = Contrast/SConstrast
   StudentizedConstrast
 
+  
+
+  #Determine cut-off values based on analysis of contrast
+  #This for binarization of multi-class cumulative (i.e. ascending) type evidence
+  #This is done by an assessment of both the contrast and studentized contrast values
+  FinalWeights =rep(NA,length(classIdsList))
+  if (isCumulative==TRUE) {      
+
+    FinalWeightsLogical = vector(,length(classIdsList));
+    
+    initialMaxConstrast = -999999
+    for(i in 1:length(FinalWeightsLogical)) {
+      if (is.nan(Contrast[i])) {
+        FinalWeightsLogical[i] = Contrast[i]
+      }else if (Contrast[i] > initialMaxConstrast & StudentizedConstrast[i] >= Contrast_Confidence_Level) {
+        initialMaxConstrast=Contrast[i] 
+        FinalWeightsLogical[i] = TRUE
+        maxWeightPlus = Wplus[i]
+        maxWeightMinus = Wminus[i]
+      }
+    }   
+    FinalWeightsWithPlus = replace(FinalWeights, FinalWeightsLogical==1, maxWeightPlus)
+    FinalWeightsWithPlusMinus= replace(FinalWeightsWithPlus, FinalWeightsLogical==0, maxWeightMinus)
+    FinalWeights = FinalWeightsWithPlusMinus
+  } 
+  
+  
+  
   #generate a table of these values
-  weightsTable = data.frame(cbind(thisNumAreaUnits,thisNumOfTP , Wplus,  SWplus, Wminus, SWminus,Contrast,StudentizedConstrast))
+  weightsTable = data.frame(cbind(thisNumAreaUnits,thisNumOfTP , Wplus,  SWplus, Wminus, SWminus,Contrast,StudentizedConstrast,FinalWeights))
   weightsTable
   plot(weightsTable$Contrast)
 
